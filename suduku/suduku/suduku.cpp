@@ -46,18 +46,30 @@ void showch(HANDLE hout, const int X, const int Y, const int bg_color, const int
 		putchar(ch);
 }
 
+bool pushxy(HANDLE hout, const int i, const int j, const int bg_color, const int fg_color, const char ch) {
+	//if (i < 0 || i > 8 || j < 0 || j > 8)
+	//	return False;
+	int px = 2 * j + 5 + 2 * int(j / 3), \
+		py = i + 2 + int(i / 3);
+	showch(hout, px, py, bg_color, fg_color, ch, 1);
+	return True;
+}
+
 //--------------------------
 
 class Suduku {
 	private:
 		int data[10][10] = { { 0 } };
+		bool isOriginal[10][10] = { {0} };
 		bool findZero(int &x, int &y);
 		bool numLegal(const int x, const int y, const int val);
+		bool fill(const int x, const int y, const int val);
+		bool original(const int x, const int y);
 	public:
 		bool check();
 		void load(const char* route);
 		bool solve(const int depth);
-		bool fill(const int x, const int y, const int val);
+		bool fillin(HANDLE hout);
 		void print(HANDLE hout);
 };
 
@@ -104,8 +116,10 @@ void Suduku::load(const char* route) {
 	for (int i = 0; i < 9; ++i) {
 		string s;
 		fin >> s;
-		for (int j = 0; j < 9; ++j)
+		for (int j = 0; j < 9; ++j) {
 			data[i][j] = int(s[j]) - 48;
+			isOriginal[i][j] = (data[i][j] != 0);
+		}
 	}
 	fin.close();
 }
@@ -133,6 +147,10 @@ bool Suduku::solve(const int depth) {
 	return False;
 }
 
+bool Suduku::original(const int x, const int y) {
+	return isOriginal[x][y];
+}
+
 bool Suduku::fill(const int x, const int y, const int val) {
 	if (data[x][y] || numLegal(x, y, val))
 		return False;
@@ -140,20 +158,76 @@ bool Suduku::fill(const int x, const int y, const int val) {
 	return True;
 }
 
-void Suduku::print(HANDLE hout) {
-	/*for (int i = 0; i < 9; ++i) {
-		if (!(i % 3))
-			cout << "   +-------+-------+-------+" << endl;
-		cout << "   ";
-		cout << "| ";
-		for (int j = 0; j < 9; ++j) {
-			cout << data[i][j] << (j == 2 || j == 5 ? " | " : " ");
+bool Suduku::fillin(HANDLE hout) {
+	print(hout);
+	int tx, ty;
+	int xNow = -1, yNow;
+
+	while (findZero(tx, ty)) {
+		if (xNow < 0) {
+			xNow = tx;
+			yNow = ty;
 		}
-		cout << "|";
-		cout << endl;
+		pushxy(hout, xNow, yNow, 15, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+		int command = getch();
+		switch (command) {
+		case 72: {
+			if (xNow != 0) {
+				pushxy(hout, xNow, yNow, 0, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+				--xNow;
+				pushxy(hout, xNow, yNow, 15, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+			}
+			break;
+		}
+		case 80: {
+			if (xNow != 8) {
+				pushxy(hout, xNow, yNow, 0, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+				++xNow;
+				pushxy(hout, xNow, yNow, 15, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+			}
+			break;
+		}
+		case 75: {
+			if (yNow != 0) {
+				pushxy(hout, xNow, yNow, 0, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+				--yNow;
+				pushxy(hout, xNow, yNow, 15, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+			}
+			break;
+		}
+		case 77: {
+			if (yNow != 8) {
+				pushxy(hout, xNow, yNow, 0, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+				++yNow;
+				pushxy(hout, xNow, yNow, 15, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+			}
+			break;
+		}
+		case 48:case 49:case 50:case 51:case 52:case 53:case 54:case 55:case 56:case 57: {
+			if (original(xNow, yNow))
+				break;
+
+			data[xNow][yNow] = command - 48;
+			int bg = (!data[xNow][yNow] || numLegal(xNow, yNow, data[xNow][yNow]) ? 0 : 4);
+			pushxy(hout, xNow, yNow, bg, color[data[xNow][yNow]], data[xNow][yNow] + 48);
+			break;
+		}
+		default:;
+		}
+
+		//check after every move
+		for (int i = 0; i < 9; ++i)
+			for (int j = 0; j < 9; ++j) 
+				if (data[i][j] && !numLegal(i, j, data[i][j]))
+					pushxy(hout, i, j, (original(i, j) ? 3 : 5), color[data[i][j]], data[i][j] + 48);
+				else
+					pushxy(hout, i, j, 0, color[data[i][j]], data[i][j] + 48);
 	}
-	cout << "   +-------+-------+-------+" << endl;*/
-	
+	return True;
+}
+
+void Suduku::print(HANDLE hout) {
+
 	cout << "           --SUDUKU--" << endl;
 	for (int i = 0; i < 9; ++i) {
 		if (!(i % 3))
@@ -165,9 +239,7 @@ void Suduku::print(HANDLE hout) {
 	
 	for (int i = 0; i < 9; ++i) {
 		for (int j = 0; j < 9; ++j) {
-			int px = 2 * j + 5 + 2 * int(j / 3), \
-				py = i + 2 + int(i / 3);
-			showch(hout, px, py, 0, color[data[i][j]], char(data[i][j] + 48), 1);
+			pushxy(hout, i, j, 0, color[data[i][j]], data[i][j] + 48);
 		}
 	}
 	gotoxy(hout, 0, 14);
@@ -236,13 +308,15 @@ char *init(HANDLE hout) {
 int main() {
 	HANDLE hout = GetStdHandle(STD_OUTPUT_HANDLE); //取标准输出设备对应的句柄
 	//char* fileName = init(hout);
-	string path = init(hout);
-	path = "data/" + path;
+	//string path = init(hout);
+	//path = "data/" + path;
+	string path = "data/suduku_1.txt";
 	Suduku suduku;
 	suduku.load(path.c_str());
 	assert(suduku.check());
-	suduku.solve(0);
-	suduku.print(hout);
+	//suduku.solve(0);
+	suduku.fillin(hout);
+	//suduku.print(hout);
 	//system("pause");
 	while (1);
 }
